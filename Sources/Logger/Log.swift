@@ -17,11 +17,11 @@ public enum Log {
         standard.info(msg, file: file, function: function, line: line)
     }
 
-    public static func warning(_ msg: String,
-                               file: StaticString = #fileID,
-                               function: StaticString = #function,
-                               line: Int = #line) {
-        standard.warning(msg, file: file, function: function, line: line)
+    public static func notice(_ msg: String,
+                              file: StaticString = #fileID,
+                              function: StaticString = #function,
+                              line: Int = #line) {
+        standard.notice(msg, file: file, function: function, line: line)
     }
 
     public static func error(_ msg: String,

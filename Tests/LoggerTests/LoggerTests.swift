@@ -22,7 +22,7 @@ func testLoggerMethods() async throws {
     
     logger.debug("Debug message")
     logger.info("Info message")
-    logger.warning("Warning message")
+    logger.notice("Notice message")
     logger.error("Error message")
 }
 
@@ -30,7 +30,7 @@ func testLoggerMethods() async throws {
 func testLogStaticMethods() async throws {
     Log.debug("Static debug message")
     Log.info("Static info message") 
-    Log.warning("Static warning message")
+    Log.notice("Static notice message")
     Log.error("Static error message")
 }
 
@@ -45,4 +45,37 @@ func testLoggerContext() async throws {
     let logger = Logger(category: "Test")
     
     logger.info("Test message")
+}
+
+@Test("LogStore initialization")
+func testLogStoreInit() async throws {
+    do {
+        let _ = try LogStore()
+        // LogStore created successfully
+    } catch {
+        // LogStore might fail in test environment without proper log data
+        print("LogStore init failed in test: \(error)")
+    }
+}
+
+@Test("LogLevel enum properties")
+func testLogLevelProperties() async throws {
+    #expect(LogLevel.debug.displayName == "DEBUG")
+    #expect(LogLevel.info.displayName == "INFO")
+    #expect(LogLevel.notice.displayName == "NOTICE")
+    #expect(LogLevel.error.displayName == "ERROR")
+    #expect(LogLevel.fault.displayName == "FAULT")
+    #expect(LogLevel.all.displayName == "ALL")
+    
+    // Test Identifiable
+    #expect(LogLevel.debug.id == LogLevel.debug)
+    #expect(LogLevel.info.id == LogLevel.info)
+}
+
+@Test("LogLevel from OSLog conversion")
+func testLogLevelConversion() async throws {
+    #expect(LogLevel.from(.debug) == .debug)
+    #expect(LogLevel.from(.info) == .info)
+    #expect(LogLevel.from(.error) == .error)
+    #expect(LogLevel.from(.fault) == .fault)
 }

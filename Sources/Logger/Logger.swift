@@ -34,12 +34,12 @@ public struct Logger: Sendable {
         logger.debug("\(msg, privacy: .private)\n\(suffix)")
     }
 
-    public func warning(_ msg: String,
-                        file: StaticString = #fileID,
-                        function: StaticString = #function,
-                        line: Int = #line) {
+    public func notice(_ msg: String,
+                       file: StaticString = #fileID,
+                       function: StaticString = #function,
+                       line: Int = #line) {
         let suffix = Logger.context(file, function, line)
-        logger.warning("\(msg, privacy: .private)\n\(suffix)")
+        logger.notice("\(msg, privacy: .private)\n\(suffix)")
     }
 
     public func error(_ msg: String,
