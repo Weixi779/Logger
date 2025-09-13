@@ -30,4 +30,32 @@ public enum Log {
                              line: Int = #line) {
         standard.error(msg, file: file, function: function, line: line)
     }
+    
+    // MARK: - Performance Measurement
+    
+    /// Measure the execution time of a closure
+    /// - Parameters:
+    ///   - name: The name for this measurement
+    ///   - operation: The closure to measure
+    /// - Returns: The result of the operation
+    public static func measure<T>(_ name: StaticString, operation: () throws -> T) rethrows -> T {
+        return try standard.measure(name, operation: operation)
+    }
+    
+    /// Measure the execution time of an async closure
+    /// - Parameters:
+    ///   - name: The name for this measurement
+    ///   - operation: The async closure to measure
+    /// - Returns: The result of the operation
+    public static func measureAsync<T>(_ name: StaticString, operation: () async throws -> T) async rethrows -> T {
+        return try await standard.measureAsync(name, operation: operation)
+    }
+    
+    /// Emit a signpost event (instant marker)
+    /// - Parameters:
+    ///   - name: The event name
+    ///   - message: Optional message
+    public static func event(_ name: StaticString, _ message: String = "") {
+        standard.event(name, message)
+    }
 }
