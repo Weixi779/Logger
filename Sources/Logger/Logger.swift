@@ -117,9 +117,14 @@ public struct Logger: Sendable {
     public func measure<T>(_ name: StaticString, operation: () throws -> T) rethrows -> T {
         let intervalId = signposter.makeSignpostID()
         let state = signposter.beginInterval(name, id: intervalId)
+        let startTime = CFAbsoluteTimeGetCurrent()
+        
         defer {
+            let duration = CFAbsoluteTimeGetCurrent() - startTime
             signposter.endInterval(name, state)
+            info("📊 \(name) completed in \(String(format: "%.2f", duration * 1000))ms")
         }
+        
         return try operation()
     }
     
@@ -133,9 +138,14 @@ public struct Logger: Sendable {
     public func measureAsync<T>(_ name: StaticString, operation: () async throws -> T) async rethrows -> T {
         let intervalId = signposter.makeSignpostID()
         let state = signposter.beginInterval(name, id: intervalId)
+        let startTime = CFAbsoluteTimeGetCurrent()
+        
         defer {
+            let duration = CFAbsoluteTimeGetCurrent() - startTime
             signposter.endInterval(name, state)
+            info("📊 \(name) completed in \(String(format: "%.2f", duration * 1000))ms")
         }
+        
         return try await operation()
     }
     
