@@ -8,18 +8,15 @@ func testLoggerInitWithString() async throws {
     logger.info("Test initialization")
 }
 
-@Test("Logger struct initialization with LogCategory enum")
-func testLoggerInitWithCategory() async throws {
-    let logger = Logger(logCategory: .standard)
-    logger.info("Standard logger test")
-    
-    let networkLogger = Logger(logCategory: .network)
-    networkLogger.info("Network logger test")
+@Test("Logger struct initialization with default category")
+func testLoggerInitWithDefault() async throws {
+    let logger = Logger()
+    logger.info("Default logger test")
 }
 
 @Test("Logger methods execute without throwing")
 func testLoggerMethods() async throws {
-    let logger = Logger(logCategory: .standard)
+    let logger = Logger()
     
     logger.debug("Debug message")
     logger.info("Info message")
@@ -27,12 +24,6 @@ func testLoggerMethods() async throws {
     logger.error("Error message")
 }
 
-
-@Test("LogCategory enum values")
-func testLogCategoryValues() async throws {
-    #expect(LogCategory.standard.rawValue == "Standard")
-    #expect(LogCategory.network.rawValue == "Network")
-}
 
 @Test("Logger context formatting")
 func testLoggerContext() async throws {

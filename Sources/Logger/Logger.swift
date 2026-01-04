@@ -8,20 +8,18 @@ import Foundation
 /// It supports multiple log levels and can be used for both development debugging and production monitoring.
 public struct Logger: Sendable {
     private static let subsystem = Bundle.main.bundleIdentifier ?? "app"
+    public static let defaultCategory = "Default"
     private let logger: os.Logger
     private let signposter: OSSignposter
+    private let category: String
 
     /// Creates a Logger instance with a custom category string.
     /// - Parameter category: The category name for this logger instance
-    public init(category: String) {
-        self.logger = .init(subsystem: Self.subsystem, category: category)
+    public init(category: String = Logger.defaultCategory) {
+        let normalizedCategory = Logger.normalizedCategory(category)
+        self.logger = .init(subsystem: Self.subsystem, category: normalizedCategory)
         self.signposter = OSSignposter(logger: self.logger)
-    }
-    /// Creates a Logger instance using a predefined LogCategory.
-    /// - Parameter logCategory: A predefined category from LogCategory enum
-    public init(logCategory: LogCategory) {
-        self.logger = .init(subsystem: Self.subsystem, category: logCategory.rawValue)
-        self.signposter = OSSignposter(logger: self.logger)
+        self.category = normalizedCategory
     }
 
     private static func context(_ file: StaticString,
@@ -29,61 +27,109 @@ public struct Logger: Sendable {
                                 _ line: Int) -> String {
         "[\(file):\(line)] \(function)"
     }
+    
+    private static func normalizedCategory(_ category: String) -> String {
+        let trimmed = category.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? defaultCategory : trimmed
+    }
+    
+    private func emitRecord(level: LogLevel,
+                            msg: String,
+                            metadata: [String: String],
+                            file: StaticString,
+                            function: StaticString,
+                            line: Int) {
+        let record = LogRecord(
+            timestamp: Date(),
+            level: level,
+            category: category,
+            subsystem: Self.subsystem,
+            message: msg,
+            file: String(describing: file),
+            function: String(describing: function),
+            line: line,
+            metadata: metadata
+        )
+        LogPipeline.shared.emit(record)
+    }
+    
+    /// Sets global configuration for all Logger instances.
+    /// - Note: Intended to be configured once during app startup.
+    public static func bootstrap(_ configuration: LoggerConfiguration) {
+        LogPipeline.shared.bootstrap(configuration)
+    }
+    
+    /// Returns the current global logger configuration.
+    public static var currentConfiguration: LoggerConfiguration {
+        LogPipeline.shared.currentConfiguration()
+    }
 
     /// Logs an informational message.
     /// - Parameters:
     ///   - msg: The message to log
+    ///   - metadata: Optional key-value pairs attached to the log record
     ///   - file: The file where the log is called (automatically captured)
     ///   - function: The function where the log is called (automatically captured)
     ///   - line: The line number where the log is called (automatically captured)
     public func info(_ msg: String,
+                     metadata: [String: String] = [:],
                      file: StaticString = #fileID,
                      function: StaticString = #function,
                      line: Int = #line) {
         let suffix = Logger.context(file, function, line)
         logger.info("\(msg, privacy: .private)\n\(suffix)")
+        emitRecord(level: .info, msg: msg, metadata: metadata, file: file, function: function, line: line)
     }
 
     /// Logs a debug message. Debug logs are typically not persisted in release builds.
     /// - Parameters:
     ///   - msg: The message to log
+    ///   - metadata: Optional key-value pairs attached to the log record
     ///   - file: The file where the log is called (automatically captured)
     ///   - function: The function where the log is called (automatically captured)
     ///   - line: The line number where the log is called (automatically captured)
     public func debug(_ msg: String,
+                      metadata: [String: String] = [:],
                       file: StaticString = #fileID,
                       function: StaticString = #function,
                       line: Int = #line) {
         let suffix = Logger.context(file, function, line)
         logger.debug("\(msg, privacy: .private)\n\(suffix)")
+        emitRecord(level: .debug, msg: msg, metadata: metadata, file: file, function: function, line: line)
     }
 
     /// Logs a notice message for significant events that are not errors.
     /// - Parameters:
     ///   - msg: The message to log
+    ///   - metadata: Optional key-value pairs attached to the log record
     ///   - file: The file where the log is called (automatically captured)
     ///   - function: The function where the log is called (automatically captured)
     ///   - line: The line number where the log is called (automatically captured)
     public func notice(_ msg: String,
+                       metadata: [String: String] = [:],
                        file: StaticString = #fileID,
                        function: StaticString = #function,
                        line: Int = #line) {
         let suffix = Logger.context(file, function, line)
         logger.notice("\(msg, privacy: .private)\n\(suffix)")
+        emitRecord(level: .notice, msg: msg, metadata: metadata, file: file, function: function, line: line)
     }
 
     /// Logs an error message for error conditions and failures.
     /// - Parameters:
     ///   - msg: The message to log
+    ///   - metadata: Optional key-value pairs attached to the log record
     ///   - file: The file where the log is called (automatically captured)
     ///   - function: The function where the log is called (automatically captured)
     ///   - line: The line number where the log is called (automatically captured)
     public func error(_ msg: String,
+                      metadata: [String: String] = [:],
                       file: StaticString = #fileID,
                       function: StaticString = #function,
                       line: Int = #line) {
         let suffix = Logger.context(file, function, line)
         logger.error("\(msg, privacy: .private)\n\(suffix)")
+        emitRecord(level: .error, msg: msg, metadata: metadata, file: file, function: function, line: line)
     }
     
     // MARK: - Timer/Performance Measurement

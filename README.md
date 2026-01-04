@@ -37,7 +37,7 @@ dependencies: [
 ```swift
 import Logger
 
-let logger = Logger(logCategory: .standard)
+let logger = Logger()
 logger.debug("App started")
 logger.info("User logged in successfully") 
 logger.notice("Network connection established")
@@ -48,8 +48,33 @@ let networkLogger = Logger(category: "Network")
 networkLogger.info("API request started")
 
 // Predefined categories
-let featureLogger = Logger(logCategory: .network)
+let featureLogger = Logger(category: "Network")
 featureLogger.debug("Connection established")
+```
+
+### Bootstrap (Optional)
+
+```swift
+import Logger
+
+final class RemoteExporter: LogExporter {
+    func export(_ record: LogRecord) {
+        // Forward to your remote logging backend.
+    }
+}
+
+final class TokenRedactor: LogRedactor {
+    func redact(_ record: LogRecord) -> LogRecord {
+        // Replace sensitive values in record.message/record.metadata.
+        return record
+    }
+}
+
+Logger.bootstrap(LoggerConfiguration(
+    exporter: RemoteExporter(),
+    redactor: TokenRedactor(),
+    redactionPolicy: .when { ProcessInfo.processInfo.environment["ENV"] == "prod" }
+))
 ```
 
 ### Performance Measurement
@@ -57,7 +82,7 @@ featureLogger.debug("Connection established")
 ```swift
 import Logger
 
-let logger = Logger(logCategory: .standard)
+let logger = Logger()
 
 // Measure synchronous operations
 let result = logger.measure("database_query") {
@@ -86,7 +111,7 @@ import Logger
 
 // Export logs for debug analysis
 do {
-    let logger = Logger(logCategory: .standard)
+    let logger = Logger()
     let logStore = try LogStore()
     
     // Get logs from last hour
@@ -104,7 +129,7 @@ do {
     present(activityVC, animated: true)
     
 } catch {
-    Logger(logCategory: .standard).error("Failed to export logs: \(error)")
+    Logger().error("Failed to export logs: \(error)")
 }
 ```
 
@@ -120,12 +145,12 @@ do {
 
 ## Categories
 
-### Predefined Categories
+### Suggested Categories
 
 ```swift
-// Use predefined categories for common use cases
-let standardLogger = Logger(logCategory: .standard)  // General app logs
-let networkLogger = Logger(logCategory: .network)    // Network operations
+// Use readable category strings for common use cases
+let standardLogger = Logger()                        // General app logs
+let networkLogger = Logger(category: "Network")      // Network operations
 ```
 
 ### Custom Categories
@@ -178,7 +203,7 @@ let jsonLogs = try logStore.exportLogsAsJSON(
 ### Async/Await Support
 
 ```swift
-let logger = Logger(logCategory: .standard)
+let logger = Logger()
 
 // Perfect for measuring async operations
 let user = await logger.measureAsync("user_login") {
@@ -197,7 +222,7 @@ await logger.measureAsync("background_processing") {
 
 ```swift
 func performNetworkRequest() async {
-    let logger = Logger(logCategory: .network)
+    let logger = Logger(category: "Network")
     
     logger.info("Starting API request")
     
@@ -224,7 +249,7 @@ import Logger
 
 struct ContentView: View {
     @State private var logs: [LogEntry] = []
-    private let logger = Logger(logCategory: .standard)
+    private let logger = Logger()
     
     var body: some View {
         NavigationView {
@@ -267,7 +292,7 @@ struct ContentView: View {
 #if DEBUG
 struct DebugMenu: View {
     @State private var showingLogExport = false
-    private let logger = Logger(logCategory: .standard)
+    private let logger = Logger()
     
     var body: some View {
         List {
@@ -294,7 +319,7 @@ struct DebugMenu: View {
 ### 1. Choose Appropriate Log Levels
 ```swift
 // ✅ Good
-let logger = Logger(logCategory: .standard)
+let logger = Logger()
 logger.debug("Entering function with parameters: \(params)")  // Development only
 logger.info("User completed onboarding")                       // Important events  
 logger.error("Network request failed: \(error)")              // Actionable errors
@@ -370,7 +395,7 @@ func exportDebugLogs() {
 ```swift
 #if DEBUG
 // Enable verbose logging in debug builds
-Logger(logCategory: .standard).debug("Detailed debug information here")
+Logger().debug("Detailed debug information here")
 
 // Export logs for debugging
 if ProcessInfo.processInfo.arguments.contains("--export-logs") {
