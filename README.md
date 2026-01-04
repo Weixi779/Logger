@@ -7,7 +7,7 @@ A comprehensive Swift logging library built on Apple's unified logging system wi
 - 🪵 **Structured Logging** - Built on `os.Logger` with automatic source context
 - ⚡ **Performance Measurement** - Integrated `OSSignposter` for timing operations  
 - 📊 **Log Export** - Retrieve and export logs using `OSLogStore`
-- 🎯 **Multiple Interfaces** - Static methods and instance-based logging
+- 🎯 **Category-Based Loggers** - Create loggers per feature or component
 - 🔒 **Privacy-Aware** - Automatic privacy protection for log messages
 - 🧵 **Thread-Safe** - Safe for concurrent use across multiple threads
 - 📱 **iOS 15+** - Modern iOS, macOS, tvOS, and watchOS support
@@ -37,19 +37,19 @@ dependencies: [
 ```swift
 import Logger
 
-// Static interface (recommended for quick logging)
-Log.debug("App started")
-Log.info("User logged in successfully") 
-Log.notice("Network connection established")
-Log.error("Failed to load data: \(error)")
+let logger = Logger(logCategory: .standard)
+logger.debug("App started")
+logger.info("User logged in successfully") 
+logger.notice("Network connection established")
+logger.error("Failed to load data: \(error)")
 
 // Instance interface (for custom categories)
 let networkLogger = Logger(category: "Network")
 networkLogger.info("API request started")
 
 // Predefined categories
-let logger = Logger(logCategory: .network)
-logger.debug("Connection established")
+let featureLogger = Logger(logCategory: .network)
+featureLogger.debug("Connection established")
 ```
 
 ### Performance Measurement
@@ -57,13 +57,15 @@ logger.debug("Connection established")
 ```swift
 import Logger
 
+let logger = Logger(logCategory: .standard)
+
 // Measure synchronous operations
-let result = Log.measure("database_query") {
+let result = logger.measure("database_query") {
     return database.fetchUsers()
 }
 
 // Measure asynchronous operations  
-let data = await Log.measureAsync("api_request") {
+let data = await logger.measureAsync("api_request") {
     return await apiClient.getData()
 }
 
@@ -74,7 +76,7 @@ let state = logger.startInterval("complex_operation")
 logger.endInterval("complex_operation", state: state)
 
 // Event markers
-Log.event("checkpoint_reached", "Processing 50% complete")
+logger.event("checkpoint_reached", "Processing 50% complete")
 ```
 
 ### Log Export & Analysis
@@ -84,6 +86,7 @@ import Logger
 
 // Export logs for debug analysis
 do {
+    let logger = Logger(logCategory: .standard)
     let logStore = try LogStore()
     
     // Get logs from last hour
@@ -101,7 +104,7 @@ do {
     present(activityVC, animated: true)
     
 } catch {
-    Log.error("Failed to export logs: \(error)")
+    Logger(logCategory: .standard).error("Failed to export logs: \(error)")
 }
 ```
 
@@ -175,13 +178,15 @@ let jsonLogs = try logStore.exportLogsAsJSON(
 ### Async/Await Support
 
 ```swift
+let logger = Logger(logCategory: .standard)
+
 // Perfect for measuring async operations
-let user = await Log.measureAsync("user_login") {
+let user = await logger.measureAsync("user_login") {
     try await authService.login(credentials)
 }
 
 // Measure Task execution
-await Log.measureAsync("background_processing") {
+await logger.measureAsync("background_processing") {
     await Task.detached {
         await processLargeDataSet()
     }.value
@@ -219,6 +224,7 @@ import Logger
 
 struct ContentView: View {
     @State private var logs: [LogEntry] = []
+    private let logger = Logger(logCategory: .standard)
     
     var body: some View {
         NavigationView {
@@ -244,7 +250,7 @@ struct ContentView: View {
                 let since = Date().addingTimeInterval(-3600) // Last hour
                 logs = try logStore.getLogs(since: since)
             } catch {
-                Log.error("Failed to load logs: \(error)")
+                logger.error("Failed to load logs: \(error)")
             }
         }
     }
@@ -261,6 +267,7 @@ struct ContentView: View {
 #if DEBUG
 struct DebugMenu: View {
     @State private var showingLogExport = false
+    private let logger = Logger(logCategory: .standard)
     
     var body: some View {
         List {
@@ -269,7 +276,7 @@ struct DebugMenu: View {
             }
             
             Button("Clear Cache") {
-                Log.measure("cache_clear") {
+                logger.measure("cache_clear") {
                     CacheManager.shared.clearAll()
                 }
             }
@@ -287,13 +294,14 @@ struct DebugMenu: View {
 ### 1. Choose Appropriate Log Levels
 ```swift
 // ✅ Good
-Log.debug("Entering function with parameters: \(params)")  // Development only
-Log.info("User completed onboarding")                       // Important events  
-Log.error("Network request failed: \(error)")              // Actionable errors
+let logger = Logger(logCategory: .standard)
+logger.debug("Entering function with parameters: \(params)")  // Development only
+logger.info("User completed onboarding")                       // Important events  
+logger.error("Network request failed: \(error)")              // Actionable errors
 
 // ❌ Avoid
-Log.info("Loop iteration \(i)")                            // Too verbose
-Log.error("User tapped button")                            // Not an error
+logger.info("Loop iteration \(i)")                            // Too verbose
+logger.error("User tapped button")                            // Not an error
 ```
 
 ### 2. Use Meaningful Categories
@@ -310,12 +318,13 @@ let logger2 = Logger(category: "Things")
 ### 3. Measure Performance Strategically
 ```swift
 // ✅ Good - Measure significant operations
-let result = Log.measure("image_processing") {
+let logger = Logger(category: "Performance")
+let result = logger.measure("image_processing") {
     return processImage(image)
 }
 
 // ❌ Avoid - Don't measure trivial operations
-let sum = Log.measure("addition") { 
+let sum = logger.measure("addition") { 
     return a + b  // Too fast to be meaningful
 }
 ```
@@ -361,7 +370,7 @@ func exportDebugLogs() {
 ```swift
 #if DEBUG
 // Enable verbose logging in debug builds
-Log.debug("Detailed debug information here")
+Logger(logCategory: .standard).debug("Detailed debug information here")
 
 // Export logs for debugging
 if ProcessInfo.processInfo.arguments.contains("--export-logs") {

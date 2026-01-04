@@ -27,13 +27,6 @@ func testLoggerMethods() async throws {
     logger.error("Error message")
 }
 
-@Test("Log static methods execute without throwing")
-func testLogStaticMethods() async throws {
-    Log.debug("Static debug message")
-    Log.info("Static info message") 
-    Log.notice("Static notice message")
-    Log.error("Static error message")
-}
 
 @Test("LogCategory enum values")
 func testLogCategoryValues() async throws {
@@ -120,19 +113,4 @@ func testLoggerEvent() async throws {
     
     logger.event("test_event")
     logger.event("test_event_with_message", "This is a test message")
-}
-
-@Test("Log static measure methods")
-func testLogStaticMeasure() async throws {
-    let result = Log.measure("static_test") {
-        return "static_result"
-    }
-    
-    #expect(result == "static_result")
-    
-    let asyncResult = await Log.measureAsync("static_async_test") {
-        return "static_async_result"
-    }
-    
-    #expect(asyncResult == "static_async_result")
 }
