@@ -1,12 +1,12 @@
 import Foundation
 
 /// Scrubs sensitive data from log records.
-public protocol LogRedactor: Sendable {
+public protocol LogRedactor {
     func redact(_ record: LogRecord) -> LogRecord
 }
 
 /// Controls when the redactor is applied.
-public enum RedactionPolicy: Sendable {
+public enum RedactionPolicy {
     case never
     case always
     case when(@Sendable () -> Bool)

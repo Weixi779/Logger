@@ -52,11 +52,25 @@ let featureLogger = Logger(category: "Network")
 featureLogger.debug("Connection established")
 ```
 
+### Structured Metadata
+
+```swift
+import Logger
+
+let logger = Logger(category: "Auth")
+logger.info("Login succeeded", metadata: [
+    "userId": "1234",
+    "traceId": "abc123",
+    "spanId": "def456"
+])
+```
+
 ### Bootstrap (Optional)
 
 ```swift
 import Logger
 
+/// Example exporter. Replace with your own OTLP/HTTP implementation.
 final class RemoteExporter: LogExporter {
     func export(_ record: LogRecord) {
         // Forward to your remote logging backend.
@@ -74,6 +88,39 @@ Logger.bootstrap(LoggerConfiguration(
     exporter: RemoteExporter(),
     redactor: TokenRedactor(),
     redactionPolicy: .when { ProcessInfo.processInfo.environment["ENV"] == "prod" }
+))
+```
+
+### Redaction-Only Example
+
+```swift
+import Logger
+
+struct NoOpExporter: LogExporter {
+    func export(_ record: LogRecord) {}
+}
+
+struct MaskingRedactor: LogRedactor {
+    func redact(_ record: LogRecord) -> LogRecord {
+        let masked = record.metadata.mapValues { _ in "***" }
+        return LogRecord(
+            timestamp: record.timestamp,
+            level: record.level,
+            category: record.category,
+            subsystem: record.subsystem,
+            message: record.message,
+            file: record.file,
+            function: record.function,
+            line: record.line,
+            metadata: masked
+        )
+    }
+}
+
+Logger.bootstrap(LoggerConfiguration(
+    exporter: NoOpExporter(),
+    redactor: MaskingRedactor(),
+    redactionPolicy: .always
 ))
 ```
 

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Global configuration for the Logger system.
-public struct LoggerConfiguration: Sendable {
+public struct LoggerConfiguration {
     /// Optional exporter for forwarding structured log records.
     public var exporter: LogExporter?
     /// Optional redactor for scrubbing sensitive data.

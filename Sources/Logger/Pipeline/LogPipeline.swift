@@ -3,30 +3,28 @@ import Foundation
 final class LogPipeline: @unchecked Sendable {
     static let shared = LogPipeline()
     
-    private let lock = NSLock()
     private var configuration = LoggerConfiguration()
+    private var hasBootstrapped = false
     
     private init() {}
     
+    // Bootstrap should be called once during app startup.
     func bootstrap(_ configuration: LoggerConfiguration) {
-        lock.lock()
+        guard !hasBootstrapped else {
+            return
+        }
         self.configuration = configuration
-        lock.unlock()
+        hasBootstrapped = true
     }
     
     func currentConfiguration() -> LoggerConfiguration {
-        lock.lock()
-        let current = configuration
-        lock.unlock()
-        return current
+        configuration
     }
     
     func emit(_ record: LogRecord) {
-        lock.lock()
         let exporter = configuration.exporter
         let redactor = configuration.redactor
         let redactionPolicy = configuration.redactionPolicy
-        lock.unlock()
         
         let output: LogRecord
         if let redactor, redactionPolicy.shouldRedact() {
@@ -37,4 +35,11 @@ final class LogPipeline: @unchecked Sendable {
         
         exporter?.export(output)
     }
+
+    #if DEBUG
+    func resetForTesting() {
+        configuration = LoggerConfiguration()
+        hasBootstrapped = false
+    }
+    #endif
 }

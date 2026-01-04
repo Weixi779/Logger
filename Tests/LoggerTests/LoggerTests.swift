@@ -2,6 +2,66 @@ import Testing
 import Foundation
 @testable import Logger
 
+private final class CaptureExporterStore {
+    private var records: [LogRecord] = []
+    
+    func append(_ record: LogRecord) {
+        records.append(record)
+    }
+    
+    func firstRecord() -> LogRecord? {
+        records.first
+    }
+}
+
+private final class CaptureExporter: LogExporter {
+    let store: CaptureExporterStore
+    
+    init(store: CaptureExporterStore = CaptureExporterStore()) {
+        self.store = store
+    }
+    
+    func export(_ record: LogRecord) {
+        store.append(record)
+    }
+    
+    func firstRecord() async -> LogRecord? {
+        store.firstRecord()
+    }
+}
+
+private func waitForRecord(_ exporter: CaptureExporter,
+                           attempts: Int = 100,
+                           delayNanoseconds: UInt64 = 10_000_000) async -> LogRecord? {
+    await Task.yield()
+    for _ in 0..<attempts {
+        if let record = await exporter.firstRecord() {
+            return record
+        }
+        try? await Task.sleep(nanoseconds: delayNanoseconds)
+    }
+    return nil
+}
+
+
+private struct TestRedactor: LogRedactor {
+    let suffix: String
+    
+    func redact(_ record: LogRecord) -> LogRecord {
+        LogRecord(
+            timestamp: record.timestamp,
+            level: record.level,
+            category: record.category,
+            subsystem: record.subsystem,
+            message: record.message + suffix,
+            file: record.file,
+            function: record.function,
+            line: record.line,
+            metadata: record.metadata
+        )
+    }
+}
+
 @Test("Logger struct initialization with string category")
 func testLoggerInitWithString() async throws {
     let logger = Logger(category: "TestCategory")
@@ -104,4 +164,63 @@ func testLoggerEvent() async throws {
     
     logger.event("test_event")
     logger.event("test_event_with_message", "This is a test message")
+}
+
+@Test("Logger pipeline behavior")
+func testLoggerPipelineBehavior() async throws {
+    Logger.resetForTesting()
+    defer { Logger.resetForTesting() }
+    
+    do {
+        let exporter = CaptureExporter()
+        Logger.bootstrap(LoggerConfiguration(exporter: exporter))
+        
+        let logger = Logger(category: "Export")
+        logger.info("Export test")
+        
+        #expect((await waitForRecord(exporter))?.message == "Export test")
+    }
+    
+    Logger.resetForTesting()
+    do {
+        let exporter = CaptureExporter()
+        let redactor = TestRedactor(suffix: "_redacted")
+        Logger.bootstrap(LoggerConfiguration(
+            exporter: exporter,
+            redactor: redactor,
+            redactionPolicy: .never
+        ))
+        
+        let logger = Logger(category: "Redaction")
+        logger.info("Original")
+        
+        #expect((await waitForRecord(exporter))?.message == "Original")
+    }
+    
+    Logger.resetForTesting()
+    do {
+        let exporter = CaptureExporter()
+        let redactor = TestRedactor(suffix: "_redacted")
+        Logger.bootstrap(LoggerConfiguration(
+            exporter: exporter,
+            redactor: redactor,
+            redactionPolicy: .always
+        ))
+        
+        let logger = Logger(category: "Redaction")
+        logger.info("Original")
+        
+        #expect((await waitForRecord(exporter))?.message == "Original_redacted")
+    }
+    
+    Logger.resetForTesting()
+    do {
+        let exporter = CaptureExporter()
+        Logger.bootstrap(LoggerConfiguration(exporter: exporter))
+        
+        let logger = Logger(category: "   ")
+        logger.info("Default category")
+        
+        #expect((await waitForRecord(exporter))?.category == Logger.defaultCategory)
+    }
 }

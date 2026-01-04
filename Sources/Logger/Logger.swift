@@ -6,7 +6,7 @@ import Foundation
 /// 
 /// Logger provides structured logging with automatic source context and performance measurement using OSSignposter.
 /// It supports multiple log levels and can be used for both development debugging and production monitoring.
-public struct Logger: Sendable {
+public struct Logger: @unchecked Sendable {
     private static let subsystem = Bundle.main.bundleIdentifier ?? "app"
     public static let defaultCategory = "Default"
     private let logger: os.Logger
@@ -63,6 +63,12 @@ public struct Logger: Sendable {
     public static var currentConfiguration: LoggerConfiguration {
         LogPipeline.shared.currentConfiguration()
     }
+
+    #if DEBUG
+    static func resetForTesting() {
+        LogPipeline.shared.resetForTesting()
+    }
+    #endif
 
     /// Logs an informational message.
     /// - Parameters:
