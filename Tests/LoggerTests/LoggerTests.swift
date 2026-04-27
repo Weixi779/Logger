@@ -12,6 +12,14 @@ private final class CaptureExporterStore {
     func firstRecord() -> LogRecord? {
         records.first
     }
+    
+    func recordCount() -> Int {
+        records.count
+    }
+    
+    func allRecords() -> [LogRecord] {
+        records
+    }
 }
 
 private final class CaptureExporter: LogExporter {
@@ -27,6 +35,14 @@ private final class CaptureExporter: LogExporter {
     
     func firstRecord() async -> LogRecord? {
         store.firstRecord()
+    }
+    
+    func recordCount() async -> Int {
+        store.recordCount()
+    }
+    
+    func allRecords() async -> [LogRecord] {
+        store.allRecords()
     }
 }
 
@@ -46,21 +62,20 @@ private func waitForRecord(_ exporter: CaptureExporter,
 
 private struct TestRedactor: LogRedactor {
     let suffix: String
+    let policy: RedactionPolicy
+    
+    init(suffix: String, policy: RedactionPolicy = .always) {
+        self.suffix = suffix
+        self.policy = policy
+    }
     
     func redact(_ record: LogRecord) -> LogRecord {
-        LogRecord(
-            timestamp: record.timestamp,
-            level: record.level,
-            category: record.category,
-            subsystem: record.subsystem,
-            message: record.message + suffix,
-            file: record.file,
-            function: record.function,
-            line: record.line,
-            metadata: record.metadata
-        )
+        record.replacing(message: record.message + suffix)
     }
 }
+
+@Suite(.serialized)
+struct LoggerTests {
 
 @Test("Logger struct initialization with string category")
 func testLoggerInitWithString() async throws {
@@ -168,12 +183,12 @@ func testLoggerEvent() async throws {
 
 @Test("Logger pipeline behavior")
 func testLoggerPipelineBehavior() async throws {
-    Logger.resetForTesting()
-    defer { Logger.resetForTesting() }
+    LoggerSystem.resetForTesting()
+    defer { LoggerSystem.resetForTesting() }
     
     do {
         let exporter = CaptureExporter()
-        Logger.bootstrap(LoggerConfiguration(exporter: exporter))
+        LoggerSystem.setup(exporter: exporter)
         
         let logger = Logger(category: "Export")
         logger.info("Export test")
@@ -181,15 +196,14 @@ func testLoggerPipelineBehavior() async throws {
         #expect((await waitForRecord(exporter))?.message == "Export test")
     }
     
-    Logger.resetForTesting()
+    LoggerSystem.resetForTesting()
     do {
         let exporter = CaptureExporter()
-        let redactor = TestRedactor(suffix: "_redacted")
-        Logger.bootstrap(LoggerConfiguration(
+        let redactor = TestRedactor(suffix: "_redacted", policy: .never)
+        LoggerSystem.setup(
             exporter: exporter,
-            redactor: redactor,
-            redactionPolicy: .never
-        ))
+            redactors: [redactor]
+        )
         
         let logger = Logger(category: "Redaction")
         logger.info("Original")
@@ -197,15 +211,14 @@ func testLoggerPipelineBehavior() async throws {
         #expect((await waitForRecord(exporter))?.message == "Original")
     }
     
-    Logger.resetForTesting()
+    LoggerSystem.resetForTesting()
     do {
         let exporter = CaptureExporter()
-        let redactor = TestRedactor(suffix: "_redacted")
-        Logger.bootstrap(LoggerConfiguration(
+        let redactor = TestRedactor(suffix: "_redacted", policy: .always)
+        LoggerSystem.setup(
             exporter: exporter,
-            redactor: redactor,
-            redactionPolicy: .always
-        ))
+            redactors: [redactor]
+        )
         
         let logger = Logger(category: "Redaction")
         logger.info("Original")
@@ -213,14 +226,66 @@ func testLoggerPipelineBehavior() async throws {
         #expect((await waitForRecord(exporter))?.message == "Original_redacted")
     }
     
-    Logger.resetForTesting()
+    LoggerSystem.resetForTesting()
     do {
         let exporter = CaptureExporter()
-        Logger.bootstrap(LoggerConfiguration(exporter: exporter))
+        LoggerSystem.setup(exporter: exporter)
         
         let logger = Logger(category: "   ")
         logger.info("Default category")
         
         #expect((await waitForRecord(exporter))?.category == Logger.defaultCategory)
     }
+    
+    LoggerSystem.resetForTesting()
+    do {
+        let firstExporter = CaptureExporter()
+        let secondExporter = CaptureExporter()
+        let firstRedactor = TestRedactor(suffix: "_one")
+        let secondRedactor = TestRedactor(suffix: "_two")
+        
+        LoggerSystem.setup(
+            exporters: [firstExporter, secondExporter],
+            redactors: [firstRedactor, secondRedactor]
+        )
+        
+        let logger = Logger(category: "Pipeline")
+        logger.info("Multiple")
+        
+        #expect((await waitForRecord(firstExporter))?.message == "Multiple_one_two")
+        #expect((await waitForRecord(secondExporter))?.message == "Multiple_one_two")
+    }
+    
+    LoggerSystem.resetForTesting()
+    do {
+        let firstExporter = CaptureExporter()
+        let secondExporter = CaptureExporter()
+        let firstRedactor = TestRedactor(suffix: "_first")
+        let secondRedactor = TestRedactor(suffix: "_second")
+        let logger = Logger(category: "HotSwap")
+        
+        LoggerSystem.setup(exporter: firstExporter)
+        logger.info("Before")
+        
+        LoggerSystem.addRedactor(firstRedactor)
+        LoggerSystem.addExporter(secondExporter)
+        logger.info("After add")
+        
+        LoggerSystem.setup(exporters: [secondExporter], redactors: [secondRedactor])
+        logger.info("After replace")
+        
+        #expect(await firstExporter.recordCount() == 2)
+        #expect(await secondExporter.recordCount() == 2)
+        #expect((await firstExporter.allRecords()).map(\.message) == ["Before", "After add_first"])
+        #expect((await secondExporter.allRecords()).map(\.message) == ["After add_first", "After replace_second"])
+        
+        LoggerSystem.removeAllExporters()
+        LoggerSystem.removeAllRedactors()
+        logger.info("After remove")
+        
+        #expect(await firstExporter.recordCount() == 2)
+        #expect(await secondExporter.recordCount() == 2)
+    }
+}
+
 }

@@ -9,7 +9,6 @@ import Foundation
 public struct Logger: @unchecked Sendable {
     private static let subsystem = Bundle.main.bundleIdentifier ?? "app"
     public static let defaultCategory = "Default"
-    private let logger: os.Logger
     private let signposter: OSSignposter
     private let category: String
 
@@ -17,17 +16,11 @@ public struct Logger: @unchecked Sendable {
     /// - Parameter category: The category name for this logger instance
     public init(category: String = Logger.defaultCategory) {
         let normalizedCategory = Logger.normalizedCategory(category)
-        self.logger = .init(subsystem: Self.subsystem, category: normalizedCategory)
-        self.signposter = OSSignposter(logger: self.logger)
+        let signpostLogger = os.Logger(subsystem: Self.subsystem, category: normalizedCategory)
+        self.signposter = OSSignposter(logger: signpostLogger)
         self.category = normalizedCategory
     }
 
-    private static func context(_ file: StaticString,
-                                _ function: StaticString,
-                                _ line: Int) -> String {
-        "[\(file):\(line)] \(function)"
-    }
-    
     private static func normalizedCategory(_ category: String) -> String {
         let trimmed = category.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? defaultCategory : trimmed
@@ -50,26 +43,9 @@ public struct Logger: @unchecked Sendable {
             line: line,
             metadata: metadata
         )
-        LogPipeline.shared.emit(record)
+        LoggerSystem.emit(record)
     }
     
-    /// Sets global configuration for all Logger instances.
-    /// - Note: Intended to be configured once during app startup.
-    public static func bootstrap(_ configuration: LoggerConfiguration) {
-        LogPipeline.shared.bootstrap(configuration)
-    }
-    
-    /// Returns the current global logger configuration.
-    public static var currentConfiguration: LoggerConfiguration {
-        LogPipeline.shared.currentConfiguration()
-    }
-
-    #if DEBUG
-    static func resetForTesting() {
-        LogPipeline.shared.resetForTesting()
-    }
-    #endif
-
     /// Logs an informational message.
     /// - Parameters:
     ///   - msg: The message to log
@@ -82,8 +58,6 @@ public struct Logger: @unchecked Sendable {
                      file: StaticString = #fileID,
                      function: StaticString = #function,
                      line: Int = #line) {
-        let suffix = Logger.context(file, function, line)
-        logger.info("\(msg, privacy: .private)\n\(suffix)")
         emitRecord(level: .info, msg: msg, metadata: metadata, file: file, function: function, line: line)
     }
 
@@ -99,8 +73,6 @@ public struct Logger: @unchecked Sendable {
                       file: StaticString = #fileID,
                       function: StaticString = #function,
                       line: Int = #line) {
-        let suffix = Logger.context(file, function, line)
-        logger.debug("\(msg, privacy: .private)\n\(suffix)")
         emitRecord(level: .debug, msg: msg, metadata: metadata, file: file, function: function, line: line)
     }
 
@@ -116,8 +88,6 @@ public struct Logger: @unchecked Sendable {
                        file: StaticString = #fileID,
                        function: StaticString = #function,
                        line: Int = #line) {
-        let suffix = Logger.context(file, function, line)
-        logger.notice("\(msg, privacy: .private)\n\(suffix)")
         emitRecord(level: .notice, msg: msg, metadata: metadata, file: file, function: function, line: line)
     }
 
@@ -133,8 +103,6 @@ public struct Logger: @unchecked Sendable {
                       file: StaticString = #fileID,
                       function: StaticString = #function,
                       line: Int = #line) {
-        let suffix = Logger.context(file, function, line)
-        logger.error("\(msg, privacy: .private)\n\(suffix)")
         emitRecord(level: .error, msg: msg, metadata: metadata, file: file, function: function, line: line)
     }
     

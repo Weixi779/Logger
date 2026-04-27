@@ -65,7 +65,7 @@ logger.info("Login succeeded", metadata: [
 ])
 ```
 
-### Bootstrap (Optional)
+### Setup Logger System (Optional)
 
 ```swift
 import Logger
@@ -78,18 +78,23 @@ final class RemoteExporter: LogExporter {
 }
 
 final class TokenRedactor: LogRedactor {
+    let policy: RedactionPolicy = .when {
+        ProcessInfo.processInfo.environment["ENV"] == "prod"
+    }
+    
     func redact(_ record: LogRecord) -> LogRecord {
         // Replace sensitive values in record.message/record.metadata.
         return record
     }
 }
 
-Logger.bootstrap(LoggerConfiguration(
-    exporter: RemoteExporter(),
-    redactor: TokenRedactor(),
-    redactionPolicy: .when { ProcessInfo.processInfo.environment["ENV"] == "prod" }
-))
+LoggerSystem.setup(
+    exporters: [RemoteExporter()],
+    redactors: [TokenRedactor()]
+)
 ```
+
+`setup` can be called again to replace the current exporters and redactors. Use `addExporter`, `addRedactor`, `removeAllExporters`, and `removeAllRedactors` for runtime changes.
 
 ### Redaction-Only Example
 
@@ -101,27 +106,18 @@ struct NoOpExporter: LogExporter {
 }
 
 struct MaskingRedactor: LogRedactor {
+    let policy: RedactionPolicy = .always
+    
     func redact(_ record: LogRecord) -> LogRecord {
         let masked = record.metadata.mapValues { _ in "***" }
-        return LogRecord(
-            timestamp: record.timestamp,
-            level: record.level,
-            category: record.category,
-            subsystem: record.subsystem,
-            message: record.message,
-            file: record.file,
-            function: record.function,
-            line: record.line,
-            metadata: masked
-        )
+        return record.replacing(metadata: masked)
     }
 }
 
-Logger.bootstrap(LoggerConfiguration(
+LoggerSystem.setup(
     exporter: NoOpExporter(),
-    redactor: MaskingRedactor(),
-    redactionPolicy: .always
-))
+    redactors: [MaskingRedactor()]
+)
 ```
 
 ### Performance Measurement

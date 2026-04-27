@@ -33,4 +33,19 @@ public struct LogRecord: Sendable {
         self.line = line
         self.metadata = metadata
     }
+    
+    public func replacing(message: String? = nil,
+                          metadata: [String: String]? = nil) -> LogRecord {
+        LogRecord(
+            timestamp: timestamp,
+            level: level,
+            category: category,
+            subsystem: subsystem,
+            message: message ?? self.message,
+            file: file,
+            function: function,
+            line: line,
+            metadata: metadata ?? self.metadata
+        )
+    }
 }
